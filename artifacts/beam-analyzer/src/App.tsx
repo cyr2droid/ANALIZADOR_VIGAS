@@ -169,9 +169,9 @@ function BeamDiagram({ input }: { input: BeamInput }) {
             <title>{isUpward ? 'Carga puntual hacia arriba' : 'Carga puntual hacia abajo'}</title>
             <line
               x1={x}
-              y1={isUpward ? 48 : labelY + 7}
+              y1={isUpward ? 94 : labelY + 7}
               x2={x}
-              y2={isUpward ? labelY + 12 : 48}
+              y2={isUpward ? 69 : 48}
               stroke={isUpward ? '#438e78' : '#d39335'}
               strokeWidth="1.8"
               markerEnd={`url(#${isUpward ? 'load-arrow-up' : 'load-arrow'})`}
@@ -179,7 +179,7 @@ function BeamDiagram({ input }: { input: BeamInput }) {
             <text x={x} y={labelY} textAnchor="middle" fill={loadColor} fontFamily="DM Mono" fontSize="9" fontWeight="500">
               P{index + 1} {format(load.magnitude, 1)}
             </text>
-            <line x1={x} y1="77" x2={x} y2="101" stroke="#93a39a" strokeDasharray="3 3" />
+            {!isUpward && <line x1={x} y1="77" x2={x} y2="101" stroke="#93a39a" strokeDasharray="3 3" />}
             <text x={x} y={104 + (index % 2) * 10} textAnchor="middle" fill="#52665e" fontFamily="DM Mono" fontSize="8">
               {format(load.position, 2)} m
             </text>
