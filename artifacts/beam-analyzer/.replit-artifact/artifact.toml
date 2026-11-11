@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Beam Analyzer"
+description = "A browser-based structural beam calculator for simply supported and cantilever beams with point loads, support reactions, and shear-force and bending-moment diagrams."
+version = "1.0.0"
+id = "artifacts/beam-analyzer"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 19073
+
+[services.development]
+run = "pnpm --filter @workspace/beam-analyzer run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/beam-analyzer", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/beam-analyzer/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "19073"
+BASE_PATH = "/"
