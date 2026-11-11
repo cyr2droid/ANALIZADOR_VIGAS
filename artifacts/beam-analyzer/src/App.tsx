@@ -263,7 +263,6 @@ function ForceChart({
             <YAxis
               type="number"
               domain={domain}
-              reversed={isMoment && type === 'simply-supported'}
               tickCount={5}
               tickFormatter={(value: number) => format(value, 1)}
               width={48}
