@@ -50,8 +50,9 @@ function samplePositions(length: number, breakpoints: number[]): number[] {
 
 /**
  * Calculates reactions and internal force diagrams for up to three signed
- * point loads (positive downward, negative upward) and one downward, uniform
- * load over a selected interval. Units are kN, m, and kN·m.
+ * point loads and one signed, uniform load over a selected interval. Positive
+ * load values act upward and negative values act downward. Units are kN, m,
+ * and kN·m.
  */
 export function calculateBeam(input: BeamInput): BeamAnalysis {
   const { type, length, pointLoads, distributedLoad } = input;
@@ -77,8 +78,8 @@ export function calculateBeam(input: BeamInput): BeamAnalysis {
   }
 
   if (distributedLoad) {
-    if (!Number.isFinite(distributedLoad.intensity) || distributedLoad.intensity < 0) {
-      throw new RangeError('Distributed-load intensity must be zero or greater.');
+    if (!Number.isFinite(distributedLoad.intensity)) {
+      throw new RangeError('Distributed-load intensity must be a finite number.');
     }
     if (
       !Number.isFinite(distributedLoad.start) ||
@@ -94,15 +95,18 @@ export function calculateBeam(input: BeamInput): BeamAnalysis {
   const distributedLength = distributedLoad
     ? distributedLoad.end - distributedLoad.start
     : 0;
+  // Convert the user's positive-up convention to the downward-positive
+  // internal convention used by the equilibrium equations below.
+  const distributedDownwardIntensity = -(distributedLoad?.intensity ?? 0);
   const distributedResultant = distributedLoad
-    ? distributedLoad.intensity * distributedLength
+    ? distributedDownwardIntensity * distributedLength
     : 0;
   const totalLoad =
-    pointLoads.reduce((total, load) => total + load.magnitude, 0) +
+    pointLoads.reduce((total, load) => total - load.magnitude, 0) +
     distributedResultant;
   const totalMomentAboutLeft =
     pointLoads.reduce(
-      (total, load) => total + load.magnitude * load.position,
+      (total, load) => total - load.magnitude * load.position,
       0,
     ) +
     (distributedLoad
@@ -135,10 +139,10 @@ export function calculateBeam(input: BeamInput): BeamAnalysis {
       const isLeft = side === 'left'
         ? load.position < x
         : load.position <= x;
-      return isLeft ? total + load.magnitude : total;
+      return isLeft ? total - load.magnitude : total;
     }, 0);
     const distributedForceToLeft =
-      (distributedLoad?.intensity ?? 0) * distributedLengthTo(x);
+      distributedDownwardIntensity * distributedLengthTo(x);
 
     return (
       (type === 'simply-supported' ? reactionLeft : totalLoad) -
@@ -151,14 +155,14 @@ export function calculateBeam(input: BeamInput): BeamAnalysis {
     if (type === 'simply-supported') {
       const pointMoment = pointLoads.reduce(
         (total, load) =>
-          total + load.magnitude * Math.max(0, x - load.position),
+          total - load.magnitude * Math.max(0, x - load.position),
         0,
       );
       let distributedMoment = 0;
       if (distributedLoad && x > distributedLoad.start) {
         if (x <= distributedLoad.end) {
           distributedMoment =
-            (distributedLoad.intensity *
+            (distributedDownwardIntensity *
               (x - distributedLoad.start) ** 2) /
             2;
         } else {
@@ -172,7 +176,7 @@ export function calculateBeam(input: BeamInput): BeamAnalysis {
 
     const pointMoment = pointLoads.reduce(
       (total, load) =>
-        total + load.magnitude * Math.max(0, load.position - x),
+        total - load.magnitude * Math.max(0, load.position - x),
       0,
     );
     let distributedMoment = 0;
@@ -183,7 +187,7 @@ export function calculateBeam(input: BeamInput): BeamAnalysis {
           ((distributedLoad.start + distributedLoad.end) / 2 - x);
       } else if (x < distributedLoad.end) {
         distributedMoment =
-          (distributedLoad.intensity * (distributedLoad.end - x) ** 2) / 2;
+          (distributedDownwardIntensity * (distributedLoad.end - x) ** 2) / 2;
       }
     }
     return -pointMoment - distributedMoment;

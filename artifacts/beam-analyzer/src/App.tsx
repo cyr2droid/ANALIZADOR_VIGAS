@@ -24,7 +24,7 @@ import {
 const initialInput: BeamInput = {
   type: 'simply-supported',
   length: 6,
-  pointLoads: [{ id: 'load-1', magnitude: 12, position: 3 }],
+  pointLoads: [{ id: 'load-1', magnitude: -12, position: 3 }],
   distributedLoad: null,
 };
 
@@ -140,9 +140,21 @@ function BeamDiagram({ input }: { input: BeamInput }) {
           />
           {Array.from({ length: distributedArrowCount }, (_, index) => {
             const x = distributedStartX + ((distributedEndX - distributedStartX) * index) / (distributedArrowCount - 1);
-            return <line key={`udl-arrow-${index}`} x1={x} y1="23" x2={x} y2="46" stroke="#d39335" strokeWidth="1.4" markerEnd="url(#load-arrow)" />;
+            const isUpward = distributed.intensity > 0;
+            return (
+              <line
+                key={`udl-arrow-${index}`}
+                x1={x}
+                y1={isUpward ? 46 : 23}
+                x2={x}
+                y2={isUpward ? 23 : 46}
+                stroke={isUpward ? '#438e78' : '#d39335'}
+                strokeWidth="1.4"
+                markerEnd={`url(#${isUpward ? 'load-arrow-up' : 'load-arrow'})`}
+              />
+            );
           })}
-          <text x={(distributedStartX + distributedEndX) / 2} y="12" textAnchor="middle" fill="#a16c22" fontFamily="DM Mono" fontSize="10" fontWeight="500">
+          <text x={(distributedStartX + distributedEndX) / 2} y="12" textAnchor="middle" fill={distributed.intensity > 0 ? '#438e78' : '#a16c22'} fontFamily="DM Mono" fontSize="10" fontWeight="500">
             q = {format(distributed.intensity, 2)} kN/m
           </text>
         </>
@@ -150,7 +162,7 @@ function BeamDiagram({ input }: { input: BeamInput }) {
       {input.pointLoads.map((load, index) => {
         const x = positionX(load.position);
         const labelY = distributed ? (index % 2 === 0 ? 7 : 18) : (index % 2 === 0 ? 12 : 24);
-        const isUpward = load.magnitude < 0;
+        const isUpward = load.magnitude > 0;
         const loadColor = isUpward ? '#438e78' : '#a16c22';
         return (
           <g key={load.id}>
@@ -364,7 +376,7 @@ function App() {
           ...current,
           pointLoads: [
             ...current.pointLoads,
-            { id, magnitude: 5, position: Number((current.length / 2).toFixed(2)) },
+                    { id, magnitude: -5, position: Number((current.length / 2).toFixed(2)) },
           ],
         });
   };
@@ -381,7 +393,7 @@ function App() {
       ...current,
       distributedLoad: current.distributedLoad
         ? null
-        : { intensity: 2.5, start: 0, end: current.length },
+        : { intensity: -2.5, start: 0, end: current.length },
     }));
   };
 
@@ -389,7 +401,7 @@ function App() {
     setInput((current) => {
       if (!current.distributedLoad) return current;
       const next = { ...current.distributedLoad, ...changes };
-      next.intensity = Math.max(0, Math.min(1000, next.intensity));
+      next.intensity = Math.max(-1000, Math.min(1000, next.intensity));
       next.start = Math.max(0, Math.min(current.length, next.start));
       next.end = Math.max(next.start, Math.min(current.length, next.end));
       if (changes.start !== undefined) next.start = Math.min(next.start, next.end);
@@ -462,7 +474,7 @@ function App() {
                 <div className="load-section-head">
                   <div>
                     <div className="field-label load-heading"><span>Cargas puntuales</span><small>{input.pointLoads.length} de 3</small></div>
-                    <p className="control-hint">P positiva ↓ · P negativa ↑</p>
+                    <p className="control-hint">P positiva ↑ · P negativa ↓</p>
                   </div>
                   <button
                     type="button"
@@ -531,7 +543,7 @@ function App() {
                 <div className="distributed-heading-row">
                   <div>
                     <div className="field-label load-heading" id="distributed-heading">Carga distribuida</div>
-                    <p className="control-hint">Uniforme y descendente</p>
+                    <p className="control-hint">q positiva ↑ · q negativa ↓</p>
                   </div>
                   <button
                     type="button"
@@ -548,7 +560,7 @@ function App() {
                       label="Intensidad · q"
                       unit="kN/m"
                       value={input.distributedLoad.intensity}
-                      min={0}
+                      min={-1000}
                       max={1000}
                       step={0.1}
                       testId="input-distributed-intensity"
@@ -585,7 +597,7 @@ function App() {
               </section>
               <div className="formula-note">
                 <strong><Ruler size={12} style={{ verticalAlign: '-2px', marginRight: 5 }} />Convención del modelo</strong>
-                P &gt; 0 actúa hacia abajo; P &lt; 0, hacia arriba. V &gt; 0 apunta hacia arriba en la cara izquierda del corte. M &gt; 0 es sagante: comprime arriba y tracciona abajo. La carga distribuida q actúa hacia abajo.
+                P y q positivas actúan hacia arriba; negativas, hacia abajo. V positiva apunta hacia arriba en la cara izquierda del corte. M positivo produce compresión arriba y tracción abajo.
               </div>
             </div>
           </aside>
