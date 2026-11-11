@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import type { ChangeEvent } from 'react';
 import {
   Area,
@@ -17,13 +17,15 @@ import {
   type BeamAnalysis,
   type BeamInput,
   type BeamType,
+  type PointLoad,
+  type UniformLoad,
 } from '@/lib/beam-calculations';
 
 const initialInput: BeamInput = {
   type: 'simply-supported',
   length: 6,
-  load: 12,
-  position: 3,
+  pointLoads: [{ id: 'load-1', magnitude: 12, position: 3 }],
+  distributedLoad: null,
 };
 
 function format(value: number, digits = 2) {
@@ -88,10 +90,16 @@ function BeamDiagram({ input }: { input: BeamInput }) {
   const left = 54;
   const right = 686;
   const beamY = 66;
-  const loadX = left + (input.position / input.length) * (right - left);
   const isCantilever = input.type === 'cantilever';
+  const positionX = (position: number) => left + (position / input.length) * (right - left);
+  const distributed = input.distributedLoad;
+  const distributedStartX = distributed ? positionX(distributed.start) : 0;
+  const distributedEndX = distributed ? positionX(distributed.end) : 0;
+  const distributedArrowCount = distributed
+    ? Math.max(2, Math.min(9, Math.round((distributed.end - distributed.start) / input.length * 8) + 1))
+    : 0;
   return (
-    <svg className="beam-svg" viewBox="0 0 740 112" role="img" aria-label="Esquema de viga y carga puntual">
+    <svg className="beam-svg" viewBox="0 0 740 124" role="img" aria-label="Esquema de viga con cargas">
       <defs>
         <marker id="load-arrow" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto">
           <path d="M0 0 L8 4 L0 8 Z" fill="#d39335" />
@@ -114,16 +122,54 @@ function BeamDiagram({ input }: { input: BeamInput }) {
           <line x1={left - 17} y1="92" x2={left + 17} y2="92" stroke="#aab5ab" strokeWidth="1.3" />
         </>
       )}
-      <line x1={loadX} y1="15" x2={loadX} y2="48" stroke="#d39335" strokeWidth="2" markerEnd="url(#load-arrow)" />
-      <text x={loadX} y="10" textAnchor="middle" fill="#a16c22" fontFamily="DM Mono" fontSize="11" fontWeight="500">
-        P = {format(input.load, 1)} kN
-      </text>
+      {distributed && distributed.end > distributed.start && (
+        <>
+          <rect
+            x={distributedStartX}
+            y="15"
+            width={Math.max(2, distributedEndX - distributedStartX)}
+            height="34"
+            fill="#d39335"
+            fillOpacity=".08"
+            stroke="#d39335"
+            strokeOpacity=".35"
+            strokeDasharray="3 3"
+          />
+          {Array.from({ length: distributedArrowCount }, (_, index) => {
+            const x = distributedStartX + ((distributedEndX - distributedStartX) * index) / (distributedArrowCount - 1);
+            return <line key={`udl-arrow-${index}`} x1={x} y1="23" x2={x} y2="46" stroke="#d39335" strokeWidth="1.4" markerEnd="url(#load-arrow)" />;
+          })}
+          <text x={(distributedStartX + distributedEndX) / 2} y="12" textAnchor="middle" fill="#a16c22" fontFamily="DM Mono" fontSize="10" fontWeight="500">
+            q = {format(distributed.intensity, 2)} kN/m
+          </text>
+        </>
+      )}
+      {input.pointLoads.map((load, index) => {
+        const x = positionX(load.position);
+        const labelY = distributed ? (index % 2 === 0 ? 7 : 18) : (index % 2 === 0 ? 12 : 24);
+        return (
+          <g key={load.id}>
+            <line x1={x} y1={labelY + 7} x2={x} y2="48" stroke="#d39335" strokeWidth="1.8" markerEnd="url(#load-arrow)" />
+            <text x={x} y={labelY} textAnchor="middle" fill="#a16c22" fontFamily="DM Mono" fontSize="9" fontWeight="500">
+              P{index + 1} {format(load.magnitude, 1)}
+            </text>
+            <line x1={x} y1="77" x2={x} y2="101" stroke="#93a39a" strokeDasharray="3 3" />
+            <text x={x} y={104 + (index % 2) * 10} textAnchor="middle" fill="#52665e" fontFamily="DM Mono" fontSize="8">
+              {format(load.position, 2)} m
+            </text>
+          </g>
+        );
+      })}
+      {distributed && (
+        <>
+          <line x1={distributedStartX} y1="78" x2={distributedStartX} y2="101" stroke="#c89a57" strokeDasharray="3 3" />
+          <line x1={distributedEndX} y1="78" x2={distributedEndX} y2="101" stroke="#c89a57" strokeDasharray="3 3" />
+        </>
+      )}
       <line x1={left} y1="104" x2={right} y2="104" stroke="#bcc7be" strokeWidth="1" />
       <path d={`M${left} 100 v8 M${right} 100 v8`} stroke="#a3afa7" />
-      <line x1={loadX} y1="77" x2={loadX} y2="101" stroke="#93a39a" strokeDasharray="3 3" />
-      <text x={left} y="111" textAnchor="middle" fill="#7a8a83" fontFamily="DM Mono" fontSize="9">0</text>
-      <text x={right} y="111" textAnchor="middle" fill="#7a8a83" fontFamily="DM Mono" fontSize="9">{format(input.length, 1)} m</text>
-      <text x={loadX} y="98" textAnchor="middle" fill="#52665e" fontFamily="DM Mono" fontSize="9">a = {format(input.position, 2)} m</text>
+      <text x={left} y="121" textAnchor="middle" fill="#7a8a83" fontFamily="DM Mono" fontSize="9">0</text>
+      <text x={right} y="121" textAnchor="middle" fill="#7a8a83" fontFamily="DM Mono" fontSize="9">{format(input.length, 1)} m</text>
       {isCantilever && <text x={left - 21} y="23" textAnchor="middle" fill="#667770" fontFamily="DM Mono" fontSize="9">empotramiento</text>}
     </svg>
   );
@@ -252,20 +298,90 @@ function ForceChart({
 
 function App() {
   const [input, setInput] = useState<BeamInput>(initialInput);
+  const nextLoadId = useRef(1);
   const analysis = useMemo(() => calculateBeam(input), [input]);
 
   const update = (key: keyof BeamInput, value: number | BeamType) => {
     setInput((current) => {
       if (key === 'length') {
         const length = Math.max(1, Math.min(50, Number(value)));
-        return { ...current, length, position: Math.min(current.position, length) };
+        const pointLoads = current.pointLoads.map((load) => ({
+          ...load,
+          position: Math.min(length, load.position),
+        }));
+        const distributedLoad = current.distributedLoad
+          ? {
+              ...current.distributedLoad,
+              start: Math.min(length, current.distributedLoad.start),
+              end: Math.min(length, current.distributedLoad.end),
+            }
+          : null;
+        return { ...current, length, pointLoads, distributedLoad };
       }
-      if (key === 'position') {
-        return { ...current, position: Math.max(0, Math.min(current.length, Number(value))) };
-      }
-      if (key === 'load') return { ...current, load: Math.max(0.1, Math.min(1000, Number(value))) };
       if (key === 'type') return { ...current, type: value as BeamType };
       return current;
+    });
+  };
+
+  const updatePointLoad = (id: string, changes: Partial<Omit<PointLoad, 'id'>>) => {
+    setInput((current) => ({
+      ...current,
+      pointLoads: current.pointLoads.map((load) => load.id === id
+        ? {
+            ...load,
+            ...changes,
+            magnitude: changes.magnitude === undefined
+              ? load.magnitude
+              : Math.max(0, Math.min(1000, changes.magnitude)),
+            position: changes.position === undefined
+              ? load.position
+              : Math.max(0, Math.min(current.length, changes.position)),
+          }
+        : load),
+    }));
+  };
+
+  const addPointLoad = () => {
+    if (input.pointLoads.length >= 3) return;
+    const id = `load-${nextLoadId.current + 1}`;
+    nextLoadId.current += 1;
+    setInput((current) => current.pointLoads.length >= 3
+      ? current
+      : {
+          ...current,
+          pointLoads: [
+            ...current.pointLoads,
+            { id, magnitude: 5, position: Number((current.length / 2).toFixed(2)) },
+          ],
+        });
+  };
+
+  const removePointLoad = (id: string) => {
+    setInput((current) => ({
+      ...current,
+      pointLoads: current.pointLoads.filter((load) => load.id !== id),
+    }));
+  };
+
+  const toggleDistributedLoad = () => {
+    setInput((current) => ({
+      ...current,
+      distributedLoad: current.distributedLoad
+        ? null
+        : { intensity: 2.5, start: 0, end: current.length },
+    }));
+  };
+
+  const updateDistributedLoad = (changes: Partial<UniformLoad>) => {
+    setInput((current) => {
+      if (!current.distributedLoad) return current;
+      const next = { ...current.distributedLoad, ...changes };
+      next.intensity = Math.max(0, Math.min(1000, next.intensity));
+      next.start = Math.max(0, Math.min(current.length, next.start));
+      next.end = Math.max(next.start, Math.min(current.length, next.end));
+      if (changes.start !== undefined) next.start = Math.min(next.start, next.end);
+      if (changes.end !== undefined) next.end = Math.max(next.start, next.end);
+      return { ...current, distributedLoad: next };
     });
   };
 
@@ -286,7 +402,7 @@ function App() {
       <main className="page-wrap">
         <div className="page-head">
           <div>
-            <div className="eyebrow">Mecánica estructural <span style={{ color: '#9aa9a0' }}>/</span> Carga puntual</div>
+            <div className="eyebrow">Mecánica estructural <span style={{ color: '#9aa9a0' }}>/</span> Cargas combinadas</div>
             <h1>Calculadora de vigas</h1>
             <p>Reacciones y diagramas internos, al instante.</p>
           </div>
@@ -329,43 +445,134 @@ function App() {
                 testId="input-length"
                 onChange={(value) => update('length', value)}
               />
-              <FieldNumber
-                label="Carga puntual · P"
-                unit="kN"
-                value={input.load}
-                min={0.1}
-                max={1000}
-                step={0.5}
-                testId="input-load"
-                onChange={(value) => update('load', value)}
-              />
-              <div className="field" style={{ marginBottom: 0 }}>
-                <FieldNumber
-                  label="Posición de carga · a"
-                  unit="m"
-                  value={input.position}
-                  min={0}
-                  max={input.length}
-                  step={0.05}
-                  testId="input-position"
-                  onChange={(value) => update('position', value)}
-                />
-                <input
-                  className="range"
-                  data-testid="range-position"
-                  type="range"
-                  min={0}
-                  max={input.length}
-                  step={Math.max(0.01, input.length / 200)}
-                  value={input.position}
-                  onChange={(event) => update('position', Number(event.target.value))}
-                  aria-label="Desplazar carga a lo largo de la viga"
-                />
-                <div className="range-labels mono"><span>0,00 m</span><span>{format(input.length, 2)} m</span></div>
+              <div className="load-section">
+                <div className="load-section-head">
+                  <div>
+                    <div className="field-label load-heading"><span>Cargas puntuales</span><small>{input.pointLoads.length} de 3</small></div>
+                    <p className="control-hint">Fuerzas verticales descendentes</p>
+                  </div>
+                  <button
+                    type="button"
+                    className="add-load-button"
+                    data-testid="button-add-point-load"
+                    onClick={addPointLoad}
+                    disabled={input.pointLoads.length >= 3}
+                    aria-label="Añadir carga puntual"
+                  >+ Añadir</button>
+                </div>
+                {input.pointLoads.map((load, index) => (
+                  <div className="point-load-row" key={load.id} data-testid={`point-load-row-${load.id}`}>
+                    <div className="point-load-top">
+                      <span className="load-index">P{index + 1}</span>
+                      <button
+                        type="button"
+                        className="remove-load-button"
+                        data-testid={`button-remove-${load.id}`}
+                        onClick={() => removePointLoad(load.id)}
+                        aria-label={`Eliminar carga puntual ${index + 1}`}
+                        title="Eliminar carga"
+                      >×</button>
+                    </div>
+                    <div className="load-input-grid">
+                      <FieldNumber
+                        label="Magnitud"
+                        unit="kN"
+                        value={load.magnitude}
+                        min={0}
+                        max={1000}
+                        step={0.5}
+                        testId={`input-magnitude-${load.id}`}
+                        onChange={(value) => updatePointLoad(load.id, { magnitude: value })}
+                      />
+                      <FieldNumber
+                        label="Posición"
+                        unit="m"
+                        value={load.position}
+                        min={0}
+                        max={input.length}
+                        step={0.05}
+                        testId={`input-position-${load.id}`}
+                        onChange={(value) => updatePointLoad(load.id, { position: value })}
+                      />
+                    </div>
+                    <input
+                      className="range"
+                      data-testid={`range-position-${load.id}`}
+                      type="range"
+                      min={0}
+                      max={input.length}
+                      step={Math.max(0.01, input.length / 200)}
+                      value={load.position}
+                      onChange={(event) => updatePointLoad(load.id, { position: Number(event.target.value) })}
+                      aria-label={`Desplazar carga puntual ${index + 1}`}
+                    />
+                    <div className="range-labels mono"><span>0,00 m</span><span>{format(input.length, 2)} m</span></div>
+                  </div>
+                ))}
+                {input.pointLoads.length === 0 && (
+                  <div className="loads-empty">Sin cargas puntuales. Añada una carga para incluirla en el análisis.</div>
+                )}
               </div>
+
+              <section className="distributed-section" aria-labelledby="distributed-heading">
+                <div className="distributed-heading-row">
+                  <div>
+                    <div className="field-label load-heading" id="distributed-heading">Carga distribuida</div>
+                    <p className="control-hint">Uniforme y descendente</p>
+                  </div>
+                  <button
+                    type="button"
+                    className={`switch-button ${input.distributedLoad ? 'on' : ''}`}
+                    role="switch"
+                    aria-checked={Boolean(input.distributedLoad)}
+                    data-testid="switch-distributed-load"
+                    onClick={toggleDistributedLoad}
+                  ><span />{input.distributedLoad ? 'Activa' : 'Desactivada'}</button>
+                </div>
+                {input.distributedLoad && (
+                  <div className="distributed-fields">
+                    <FieldNumber
+                      label="Intensidad · q"
+                      unit="kN/m"
+                      value={input.distributedLoad.intensity}
+                      min={0}
+                      max={1000}
+                      step={0.1}
+                      testId="input-distributed-intensity"
+                      onChange={(value) => updateDistributedLoad({ intensity: value })}
+                    />
+                    <div className="load-input-grid">
+                      <FieldNumber
+                        label="Inicio"
+                        unit="m"
+                        value={input.distributedLoad.start}
+                        min={0}
+                        max={input.length}
+                        step={0.05}
+                        testId="input-distributed-start"
+                        onChange={(value) => updateDistributedLoad({ start: value })}
+                      />
+                      <FieldNumber
+                        label="Fin"
+                        unit="m"
+                        value={input.distributedLoad.end}
+                        min={0}
+                        max={input.length}
+                        step={0.05}
+                        testId="input-distributed-end"
+                        onChange={(value) => updateDistributedLoad({ end: value })}
+                      />
+                    </div>
+                    <div className="distributed-range-labels mono">
+                      <span>Segmento activo</span>
+                      <span>{format(input.distributedLoad.start, 2)} — {format(input.distributedLoad.end, 2)} m</span>
+                    </div>
+                  </div>
+                )}
+              </section>
               <div className="formula-note">
                 <strong><Ruler size={12} style={{ verticalAlign: '-2px', marginRight: 5 }} />Convención del modelo</strong>
-                Carga vertical descendente. V positiva hacia arriba en la cara izquierda; momento positivo sagante.
+                Cargas verticales descendentes. V positiva hacia arriba en la cara izquierda; momento positivo sagante.
               </div>
             </div>
           </aside>
@@ -417,7 +624,7 @@ function App() {
 
             <div className="limitation" data-testid="text-limitation">
               <span className="limitation-mark"><CircleHelp size={12} /></span>
-              <div><strong>Alcance del modelo.</strong> Resultados para una viga ideal con una carga puntual. Úselos para aprendizaje o análisis preliminar; no sustituyen un diseño estructural profesional.</div>
+              <div><strong>Alcance del modelo.</strong> Resultados para una viga ideal con una a tres cargas puntuales y una carga uniformemente distribuida. Úselos para aprendizaje o análisis preliminar; no sustituyen un diseño estructural profesional.</div>
             </div>
           </div>
         </div>
