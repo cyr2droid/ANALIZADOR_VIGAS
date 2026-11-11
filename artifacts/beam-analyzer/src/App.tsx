@@ -104,6 +104,9 @@ function BeamDiagram({ input }: { input: BeamInput }) {
         <marker id="load-arrow" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto">
           <path d="M0 0 L8 4 L0 8 Z" fill="#d39335" />
         </marker>
+        <marker id="load-arrow-up" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto">
+          <path d="M0 0 L8 4 L0 8 Z" fill="#438e78" />
+        </marker>
       </defs>
       {isCantilever && (
         <>
@@ -147,10 +150,21 @@ function BeamDiagram({ input }: { input: BeamInput }) {
       {input.pointLoads.map((load, index) => {
         const x = positionX(load.position);
         const labelY = distributed ? (index % 2 === 0 ? 7 : 18) : (index % 2 === 0 ? 12 : 24);
+        const isUpward = load.magnitude < 0;
+        const loadColor = isUpward ? '#438e78' : '#a16c22';
         return (
           <g key={load.id}>
-            <line x1={x} y1={labelY + 7} x2={x} y2="48" stroke="#d39335" strokeWidth="1.8" markerEnd="url(#load-arrow)" />
-            <text x={x} y={labelY} textAnchor="middle" fill="#a16c22" fontFamily="DM Mono" fontSize="9" fontWeight="500">
+            <title>{isUpward ? 'Carga puntual hacia arriba' : 'Carga puntual hacia abajo'}</title>
+            <line
+              x1={x}
+              y1={isUpward ? 48 : labelY + 7}
+              x2={x}
+              y2={isUpward ? labelY + 12 : 48}
+              stroke={isUpward ? '#438e78' : '#d39335'}
+              strokeWidth="1.8"
+              markerEnd={`url(#${isUpward ? 'load-arrow-up' : 'load-arrow'})`}
+            />
+            <text x={x} y={labelY} textAnchor="middle" fill={loadColor} fontFamily="DM Mono" fontSize="9" fontWeight="500">
               P{index + 1} {format(load.magnitude, 1)}
             </text>
             <line x1={x} y1="77" x2={x} y2="101" stroke="#93a39a" strokeDasharray="3 3" />
@@ -331,7 +345,7 @@ function App() {
             ...changes,
             magnitude: changes.magnitude === undefined
               ? load.magnitude
-              : Math.max(0, Math.min(1000, changes.magnitude)),
+              : Math.max(-1000, Math.min(1000, changes.magnitude)),
             position: changes.position === undefined
               ? load.position
               : Math.max(0, Math.min(current.length, changes.position)),
@@ -448,7 +462,7 @@ function App() {
                 <div className="load-section-head">
                   <div>
                     <div className="field-label load-heading"><span>Cargas puntuales</span><small>{input.pointLoads.length} de 3</small></div>
-                    <p className="control-hint">Fuerzas verticales descendentes</p>
+                    <p className="control-hint">P positiva ↓ · P negativa ↑</p>
                   </div>
                   <button
                     type="button"
@@ -474,10 +488,10 @@ function App() {
                     </div>
                     <div className="load-input-grid">
                       <FieldNumber
-                        label="Magnitud"
+                         label="Fuerza"
                         unit="kN"
                         value={load.magnitude}
-                        min={0}
+                         min={-1000}
                         max={1000}
                         step={0.5}
                         testId={`input-magnitude-${load.id}`}
@@ -571,7 +585,7 @@ function App() {
               </section>
               <div className="formula-note">
                 <strong><Ruler size={12} style={{ verticalAlign: '-2px', marginRight: 5 }} />Convención del modelo</strong>
-                Cargas verticales descendentes. V positiva hacia arriba en la cara izquierda; momento positivo sagante.
+                P &gt; 0 actúa hacia abajo; P &lt; 0, hacia arriba. V &gt; 0 apunta hacia arriba en la cara izquierda del corte. M &gt; 0 es sagante: comprime arriba y tracciona abajo. La carga distribuida q actúa hacia abajo.
               </div>
             </div>
           </aside>

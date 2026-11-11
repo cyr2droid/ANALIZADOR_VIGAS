@@ -49,9 +49,9 @@ function samplePositions(length: number, breakpoints: number[]): number[] {
 }
 
 /**
- * Calculates reactions and internal force diagrams for up to three downward
- * point loads and one downward, uniform load over a selected interval.
- * Units are kN, m, and kN·m.
+ * Calculates reactions and internal force diagrams for up to three signed
+ * point loads (positive downward, negative upward) and one downward, uniform
+ * load over a selected interval. Units are kN, m, and kN·m.
  */
 export function calculateBeam(input: BeamInput): BeamAnalysis {
   const { type, length, pointLoads, distributedLoad } = input;
@@ -64,8 +64,8 @@ export function calculateBeam(input: BeamInput): BeamAnalysis {
   }
 
   for (const pointLoad of pointLoads) {
-    if (!Number.isFinite(pointLoad.magnitude) || pointLoad.magnitude < 0) {
-      throw new RangeError('Point-load magnitude must be zero or greater.');
+    if (!Number.isFinite(pointLoad.magnitude)) {
+      throw new RangeError('Point-load value must be a finite number.');
     }
     if (
       !Number.isFinite(pointLoad.position) ||
