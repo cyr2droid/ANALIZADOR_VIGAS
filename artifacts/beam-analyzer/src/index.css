@@ -385,7 +385,7 @@
 }
 
 .mono { font-family: var(--app-font-mono); font-variant-numeric: tabular-nums; }
-.app-shell { min-height: 100dvh; background: #f4f2eb; color: #20313d; }
+.app-shell { min-height: 100dvh; background: #ece8df; color: #20313d; }
 .topbar { height: 68px; background: #20313d; color: #f5f3ec; display:flex; align-items:center; justify-content:space-between; padding:0 clamp(18px,4vw,60px); }
 .brand { display:flex; align-items:center; gap:12px; font-family:var(--app-font-serif); font-weight:800; letter-spacing:-.04em; font-size:19px; }
 .brand-mark { width:34px;height:34px;border:1px solid #6cc0a4;border-radius:10px;display:grid;place-items:center;color:#6cc0a4; }

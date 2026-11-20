@@ -21,10 +21,12 @@ import {
   type UniformLoad,
 } from '@/lib/beam-calculations';
 
+const MAX_POINT_LOAD_KN = 10;
+
 const initialInput: BeamInput = {
   type: 'simply-supported',
   length: 6,
-  pointLoads: [{ id: 'load-1', magnitude: -12, position: 3 }],
+  pointLoads: [{ id: 'load-1', magnitude: -MAX_POINT_LOAD_KN, position: 3 }],
   distributedLoad: null,
 };
 
@@ -357,7 +359,7 @@ function App() {
             ...changes,
             magnitude: changes.magnitude === undefined
               ? load.magnitude
-              : Math.max(-1000, Math.min(1000, changes.magnitude)),
+              : Math.max(-MAX_POINT_LOAD_KN, Math.min(MAX_POINT_LOAD_KN, changes.magnitude)),
             position: changes.position === undefined
               ? load.position
               : Math.max(0, Math.min(current.length, changes.position)),
@@ -503,8 +505,8 @@ function App() {
                          label="Fuerza"
                         unit="kN"
                         value={load.magnitude}
-                         min={-1000}
-                        max={1000}
+                        min={-MAX_POINT_LOAD_KN}
+                        max={MAX_POINT_LOAD_KN}
                         step={0.5}
                         testId={`input-magnitude-${load.id}`}
                         onChange={(value) => updatePointLoad(load.id, { magnitude: value })}
