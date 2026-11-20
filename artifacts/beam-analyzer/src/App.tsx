@@ -21,7 +21,7 @@ import {
   type UniformLoad,
 } from '@/lib/beam-calculations';
 
-const MAX_POINT_LOAD_KN = 1000;
+const MAX_POINT_LOAD_KN = 10000;
 const MAX_DISTRIBUTED_LOAD_KN_PER_M = 100;
 
 const initialInput: BeamInput = {
