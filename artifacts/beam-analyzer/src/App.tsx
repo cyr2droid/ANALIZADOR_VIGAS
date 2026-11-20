@@ -21,12 +21,13 @@ import {
   type UniformLoad,
 } from '@/lib/beam-calculations';
 
-const MAX_POINT_LOAD_KN = 10;
+const MAX_POINT_LOAD_KN = 1000;
+const MAX_DISTRIBUTED_LOAD_KN_PER_M = 100;
 
 const initialInput: BeamInput = {
   type: 'simply-supported',
   length: 6,
-  pointLoads: [{ id: 'load-1', magnitude: -MAX_POINT_LOAD_KN, position: 3 }],
+  pointLoads: [{ id: 'load-1', magnitude: -10, position: 3 }],
   distributedLoad: null,
 };
 
@@ -403,7 +404,10 @@ function App() {
     setInput((current) => {
       if (!current.distributedLoad) return current;
       const next = { ...current.distributedLoad, ...changes };
-      next.intensity = Math.max(-1000, Math.min(1000, next.intensity));
+      next.intensity = Math.max(
+        -MAX_DISTRIBUTED_LOAD_KN_PER_M,
+        Math.min(MAX_DISTRIBUTED_LOAD_KN_PER_M, next.intensity),
+      );
       next.start = Math.max(0, Math.min(current.length, next.start));
       next.end = Math.max(next.start, Math.min(current.length, next.end));
       if (changes.start !== undefined) next.start = Math.min(next.start, next.end);
@@ -562,8 +566,8 @@ function App() {
                       label="Intensidad · q"
                       unit="kN/m"
                       value={input.distributedLoad.intensity}
-                      min={-1000}
-                      max={1000}
+                      min={-MAX_DISTRIBUTED_LOAD_KN_PER_M}
+                      max={MAX_DISTRIBUTED_LOAD_KN_PER_M}
                       step={0.1}
                       testId="input-distributed-intensity"
                       onChange={(value) => updateDistributedLoad({ intensity: value })}
