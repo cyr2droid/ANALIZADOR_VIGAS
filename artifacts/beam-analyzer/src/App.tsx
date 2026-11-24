@@ -23,10 +23,13 @@ import {
 
 const MAX_POINT_LOAD_KN = 10000;
 const MAX_DISTRIBUTED_LOAD_KN_PER_M = 100;
+const MIN_SUPPORT_GAP_M = 0.05;
 
 const initialInput: BeamInput = {
   type: 'simply-supported',
   length: 6,
+  leftSupportDistance: 0,
+  rightSupportDistance: 0,
   pointLoads: [{ id: 'load-1', magnitude: -10, position: 3 }],
   distributedLoad: null,
 };
@@ -95,6 +98,8 @@ function BeamDiagram({ input }: { input: BeamInput }) {
   const beamY = 66;
   const isCantilever = input.type === 'cantilever';
   const positionX = (position: number) => left + (position / input.length) * (right - left);
+  const supportLeftX = positionX(input.leftSupportDistance);
+  const supportRightX = positionX(input.length - input.rightSupportDistance);
   const distributed = input.distributedLoad;
   const distributedStartX = distributed ? positionX(distributed.start) : 0;
   const distributedEndX = distributed ? positionX(distributed.end) : 0;
@@ -122,10 +127,12 @@ function BeamDiagram({ input }: { input: BeamInput }) {
       <line x1={left} y1={beamY} x2={right} y2={beamY} stroke="#283e47" strokeWidth="5" strokeLinecap="round" />
       {!isCantilever && (
         <>
-          <path d={`M${left - 11} 89 L${left} 70 L${left + 11} 89 Z`} fill="#dfe8df" stroke="#60736b" strokeWidth="1.5" />
-          <path d={`M${right - 11} 89 L${right} 70 L${right + 11} 89 Z`} fill="#dfe8df" stroke="#60736b" strokeWidth="1.5" />
-          <line x1={right - 17} y1="92" x2={right + 17} y2="92" stroke="#aab5ab" strokeWidth="1.3" />
-          <line x1={left - 17} y1="92" x2={left + 17} y2="92" stroke="#aab5ab" strokeWidth="1.3" />
+          <path d={`M${supportLeftX - 11} 89 L${supportLeftX} 70 L${supportLeftX + 11} 89 Z`} fill="#dfe8df" stroke="#60736b" strokeWidth="1.5" />
+          <path d={`M${supportRightX - 11} 89 L${supportRightX} 70 L${supportRightX + 11} 89 Z`} fill="#dfe8df" stroke="#60736b" strokeWidth="1.5" />
+          <line x1={supportRightX - 17} y1="92" x2={supportRightX + 17} y2="92" stroke="#aab5ab" strokeWidth="1.3" />
+          <line x1={supportLeftX - 17} y1="92" x2={supportLeftX + 17} y2="92" stroke="#aab5ab" strokeWidth="1.3" />
+          <text x={supportLeftX - 14} y="100" textAnchor="end" fill="#52665e" fontFamily="DM Mono" fontSize="8">A</text>
+          <text x={supportRightX + 14} y="100" textAnchor="start" fill="#52665e" fontFamily="DM Mono" fontSize="8">B</text>
         </>
       )}
       {distributed && distributed.end > distributed.start && (
@@ -333,6 +340,14 @@ function App() {
     setInput((current) => {
       if (key === 'length') {
         const length = Math.max(1, Math.min(50, Number(value)));
+        const leftSupportDistance = Math.min(
+          current.leftSupportDistance,
+          Math.max(0, length - MIN_SUPPORT_GAP_M),
+        );
+        const rightSupportDistance = Math.min(
+          current.rightSupportDistance,
+          Math.max(0, length - leftSupportDistance - MIN_SUPPORT_GAP_M),
+        );
         const pointLoads = current.pointLoads.map((load) => ({
           ...load,
           position: Math.min(length, load.position),
@@ -344,9 +359,36 @@ function App() {
               end: Math.min(length, current.distributedLoad.end),
             }
           : null;
-        return { ...current, length, pointLoads, distributedLoad };
+        return {
+          ...current,
+          length,
+          leftSupportDistance,
+          rightSupportDistance,
+          pointLoads,
+          distributedLoad,
+        };
       }
       if (key === 'type') return { ...current, type: value as BeamType };
+      if (key === 'leftSupportDistance') {
+        const maxDistance = Math.max(
+          0,
+          current.length - current.rightSupportDistance - MIN_SUPPORT_GAP_M,
+        );
+        return {
+          ...current,
+          leftSupportDistance: Math.max(0, Math.min(maxDistance, Number(value))),
+        };
+      }
+      if (key === 'rightSupportDistance') {
+        const maxDistance = Math.max(
+          0,
+          current.length - current.leftSupportDistance - MIN_SUPPORT_GAP_M,
+        );
+        return {
+          ...current,
+          rightSupportDistance: Math.max(0, Math.min(maxDistance, Number(value))),
+        };
+      }
       return current;
     });
   };
@@ -476,6 +518,44 @@ function App() {
                 testId="input-length"
                 onChange={(value) => update('length', value)}
               />
+              {input.type === 'simply-supported' && (
+                <section className="supports-section" aria-labelledby="supports-heading">
+                  <div className="field-label" id="supports-heading">
+                    <span>Distancia de los apoyos a los extremos</span>
+                  </div>
+                  <div className="load-input-grid">
+                    <FieldNumber
+                      label="Extremo izq. → A"
+                      unit="m"
+                      value={input.leftSupportDistance}
+                      min={0}
+                      max={Math.max(
+                        0,
+                        input.length - input.rightSupportDistance - MIN_SUPPORT_GAP_M,
+                      )}
+                      step={0.05}
+                      testId="input-left-support-distance"
+                      onChange={(value) => update('leftSupportDistance', value)}
+                    />
+                    <FieldNumber
+                      label="Extremo der. → B"
+                      unit="m"
+                      value={input.rightSupportDistance}
+                      min={0}
+                      max={Math.max(
+                        0,
+                        input.length - input.leftSupportDistance - MIN_SUPPORT_GAP_M,
+                      )}
+                      step={0.05}
+                      testId="input-right-support-distance"
+                      onChange={(value) => update('rightSupportDistance', value)}
+                    />
+                  </div>
+                  <p className="control-hint">
+                    0 m coloca el apoyo en el extremo; una distancia positiva deja un voladizo.
+                  </p>
+                </section>
+              )}
               <div className="load-section">
                 <div className="load-section-head">
                   <div>
@@ -613,12 +693,20 @@ function App() {
               <div className="panel metric" data-testid="metric-left-reaction">
                 <div className="metric-label">Reacción izquierda</div>
                 <div className="metric-value">{format(analysis.reactionLeft)}<span className="metric-unit">kN</span></div>
-                <div className="metric-foot">{input.type === 'cantilever' ? 'empotramiento' : 'apoyo A'}</div>
+                <div className="metric-foot">
+                  {input.type === 'cantilever'
+                    ? 'empotramiento'
+                    : `apoyo A · x = ${format(input.leftSupportDistance, 2)} m`}
+                </div>
               </div>
               <div className="panel metric" data-testid="metric-right-reaction">
                 <div className="metric-label">Reacción derecha</div>
                 <div className="metric-value">{format(analysis.reactionRight)}<span className="metric-unit">kN</span></div>
-                <div className="metric-foot">{input.type === 'cantilever' ? 'sin apoyo' : 'apoyo B'}</div>
+                <div className="metric-foot">
+                  {input.type === 'cantilever'
+                    ? 'sin apoyo'
+                    : `apoyo B · x = ${format(input.length - input.rightSupportDistance, 2)} m`}
+                </div>
               </div>
               <div className="panel metric" data-testid="metric-max-shear">
                 <div className="metric-label">Cortante máximo</div>
@@ -644,8 +732,16 @@ function App() {
               <div className="beam-stage">
                 <BeamDiagram input={input} />
                 <div className="axis-caption">
-                  <span>{input.type === 'cantilever' ? 'A · empotramiento' : 'A · articulación'}</span>
-                  <span>{input.type === 'cantilever' ? 'extremo libre' : 'B · rodillo'}</span>
+                  <span>
+                    {input.type === 'cantilever'
+                      ? 'A · empotramiento'
+                      : `A · ${format(input.leftSupportDistance, 2)} m desde la izquierda`}
+                  </span>
+                  <span>
+                    {input.type === 'cantilever'
+                      ? 'extremo libre'
+                      : `B · ${format(input.rightSupportDistance, 2)} m desde la derecha`}
+                  </span>
                 </div>
               </div>
             </section>
@@ -655,7 +751,7 @@ function App() {
 
             <div className="limitation" data-testid="text-limitation">
               <span className="limitation-mark"><CircleHelp size={12} /></span>
-              <div><strong>Alcance del modelo.</strong> Resultados para una viga ideal con una a tres cargas puntuales y una carga uniformemente distribuida. Úselos para aprendizaje o análisis preliminar; no sustituyen un diseño estructural profesional.</div>
+              <div><strong>Alcance del modelo.</strong> Resultados para vigas ideales biapoyadas (incluidos apoyos interiores y voladizos) o en voladizo, con una a tres cargas puntuales y una carga uniformemente distribuida. Úselos para aprendizaje o análisis preliminar; no sustituyen un diseño estructural profesional.</div>
             </div>
           </div>
         </div>

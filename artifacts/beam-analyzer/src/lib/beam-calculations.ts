@@ -15,6 +15,8 @@ export interface UniformLoad {
 export interface BeamInput {
   type: BeamType;
   length: number;
+  leftSupportDistance: number;
+  rightSupportDistance: number;
   pointLoads: PointLoad[];
   distributedLoad: UniformLoad | null;
 }
@@ -55,10 +57,27 @@ function samplePositions(length: number, breakpoints: number[]): number[] {
  * and kN·m.
  */
 export function calculateBeam(input: BeamInput): BeamAnalysis {
-  const { type, length, pointLoads, distributedLoad } = input;
+  const {
+    type,
+    length,
+    leftSupportDistance,
+    rightSupportDistance,
+    pointLoads,
+    distributedLoad,
+  } = input;
 
   if (!Number.isFinite(length) || length <= 0) {
     throw new RangeError('Beam length must be greater than zero.');
+  }
+  if (
+    type === 'simply-supported' &&
+    (!Number.isFinite(leftSupportDistance) ||
+      !Number.isFinite(rightSupportDistance) ||
+      leftSupportDistance < 0 ||
+      rightSupportDistance < 0 ||
+      leftSupportDistance + rightSupportDistance >= length)
+  ) {
+    throw new RangeError('The two supports must be distinct and within the beam.');
   }
   if (pointLoads.length > 3) {
     throw new RangeError('A maximum of three point loads is supported.');
@@ -114,13 +133,23 @@ export function calculateBeam(input: BeamInput): BeamAnalysis {
         ((distributedLoad.start + distributedLoad.end) / 2)
       : 0);
 
+  const supportAPosition =
+    type === 'simply-supported' ? leftSupportDistance : 0;
+  const supportBPosition =
+    type === 'simply-supported' ? length - rightSupportDistance : length;
   const reactionRight =
-    type === 'simply-supported' ? totalMomentAboutLeft / length : 0;
+    type === 'simply-supported'
+      ? (totalMomentAboutLeft - totalLoad * supportAPosition) /
+        (supportBPosition - supportAPosition)
+      : 0;
   const reactionLeft =
     type === 'simply-supported' ? totalLoad - reactionRight : totalLoad;
   const fixedMoment =
     type === 'cantilever' ? -totalMomentAboutLeft : 0;
   const breakpoints = [
+    ...(type === 'simply-supported'
+      ? [supportAPosition, supportBPosition]
+      : []),
     ...pointLoads.map((load) => load.position),
     ...(distributedLoad ? [distributedLoad.start, distributedLoad.end] : []),
   ];
@@ -135,24 +164,29 @@ export function calculateBeam(input: BeamInput): BeamAnalysis {
   };
 
   const shearAt = (x: number, side: 'left' | 'right') => {
+    const isIncluded = (position: number) =>
+      side === 'left' ? position < x : position <= x;
     const pointLoadToLeft = pointLoads.reduce((total, load) => {
-      const isLeft = side === 'left'
-        ? load.position < x
-        : load.position <= x;
-      return isLeft ? total - load.magnitude : total;
+      return isIncluded(load.position) ? total - load.magnitude : total;
     }, 0);
     const distributedForceToLeft =
       distributedDownwardIntensity * distributedLengthTo(x);
+    const supportReactionsToLeft =
+      type === 'simply-supported'
+        ? (isIncluded(supportAPosition) ? reactionLeft : 0) +
+          (isIncluded(supportBPosition) ? reactionRight : 0)
+        : totalLoad;
 
     return (
-      (type === 'simply-supported' ? reactionLeft : totalLoad) -
-      pointLoadToLeft -
-      distributedForceToLeft
+      supportReactionsToLeft - pointLoadToLeft - distributedForceToLeft
     );
   };
 
   const momentAt = (x: number) => {
     if (type === 'simply-supported') {
+      const supportMoment =
+        reactionLeft * Math.max(0, x - supportAPosition) +
+        reactionRight * Math.max(0, x - supportBPosition);
       const pointMoment = pointLoads.reduce(
         (total, load) =>
           total - load.magnitude * Math.max(0, x - load.position),
@@ -171,7 +205,7 @@ export function calculateBeam(input: BeamInput): BeamAnalysis {
             (x - (distributedLoad.start + distributedLoad.end) / 2);
         }
       }
-      return reactionLeft * x - pointMoment - distributedMoment;
+      return supportMoment - pointMoment - distributedMoment;
     }
 
     const pointMoment = pointLoads.reduce(
@@ -196,15 +230,19 @@ export function calculateBeam(input: BeamInput): BeamAnalysis {
   const shear: DiagramPoint[] = [];
   for (const x of positions) {
     if (x === 0) {
-      // The left reaction and any coincident point loads act at the boundary.
+      // Point loads and supports at the left edge create a jump from zero.
       shear.push({ x, value: 0 });
       shear.push({ x, value: shearAt(x, 'right') });
     } else if (x === length) {
       // The right support or free end returns the diagram to zero.
       shear.push({ x, value: shearAt(x, 'left') });
       shear.push({ x, value: 0 });
-    } else if (pointLoads.some((load) => load.position === x)) {
-      // Duplicate x positions preserve the shear jump at point loads.
+    } else if (
+      pointLoads.some((load) => load.position === x) ||
+      (type === 'simply-supported' &&
+        (supportAPosition === x || supportBPosition === x))
+    ) {
+      // Duplicate x positions preserve shear jumps at point loads and supports.
       shear.push({ x, value: shearAt(x, 'left') });
       shear.push({ x, value: shearAt(x, 'right') });
     } else {

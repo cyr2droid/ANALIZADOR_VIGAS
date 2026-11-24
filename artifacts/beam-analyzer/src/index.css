@@ -450,6 +450,7 @@
 .limitation-mark {flex:none;font-family:var(--app-font-mono);font-weight:500;color:#b27a32;font-size:13px;border:1px solid #e0cda9;border-radius:50%;width:20px;height:20px;text-align:center;line-height:18px;}
 .limitation strong {color:#495951;}
 .recharts-reference-line line {stroke:#9aa8a0;stroke-width:1.2;}
+.supports-section { border-top:1px solid #edf0eb; padding-top:15px; margin-top:2px; margin-bottom:17px; }
 .load-section { border-top:1px solid #edf0eb; padding-top:16px; margin-top:2px; }
 .load-section-head,.distributed-heading-row { display:flex; align-items:center; justify-content:space-between; gap:12px; }
 .load-heading { margin:0; }
